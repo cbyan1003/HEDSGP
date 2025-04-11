@@ -15,7 +15,7 @@ import os
 # 3RScan file names
 LABEL_FILE_NAME_RAW = 'labels.instances.annotated.v2.ply'
 LABEL_FILE_NAME = 'labels.instances.align.annotated.v2.ply'
-NAME_PATTERN_INSTANCE_IMG = 'frame-{0:06d}.rendered.instances.png'
+NAME_PATTERN_INSTANCE_IMG = 'frame-{0:06d}.color.jpg'
 NAME_PATTERN_LABEL_IMG = 'frame-{0:06d}.rendered.labels.png'
 SEMSEG_FILE_NAME = 'semseg.v2.json'
 MTL_NAME = 'mesh.refined.mtl'
@@ -51,6 +51,7 @@ NAME_RELATIONSHIPS = 'relationships.h5'
 NAME_ROI_IMAGE = 'roi_images.h5'
 PATH_LABEL_MAPPING = os.path.join(
     PATH_FILE, '3RScan.v2 Semantic Classes - Mapping.csv')
+PATH_LABEL_MAPPING_SCANNET = '/home/***/Scannet_dataset/v2/v2/scannetv2-labels.combined.tsv'
 PATH_CLASS160_FILE = os.path.join(PATH_FILE, 'classes160.txt')
 
 
@@ -58,3 +59,14 @@ PATH_CLASS160_FILE = os.path.join(PATH_FILE, 'classes160.txt')
 STRUCTURE_LABELS = ['wall', 'floor', 'ceiling']
 SUPPORT_TYPE_RELATIONSHIPS = ['supported by', 'attached to',
                               'standing on', 'hanging on', 'connected to', 'part of', 'build in']
+SEMANTIC_TYPE_RELATIONSHIPS_SCANNET = ['identical', 'same_set', 'part of']
+GEOMETRIC_TYPE_RELATIONSHIPS_SCANNET = ['below', 'beside', 'support', 'above', 'in', 'on', 'near', 'pulled out', 'pushed in']
+
+
+
+
+
+
+
+
+

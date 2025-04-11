@@ -10,6 +10,7 @@ import copy
 from tqdm import tqdm
 import numpy as np
 import multiprocessing as mp
+from ssg.utils import util_label
 
 # from utils import util_ply, util_data, util, define
 from codeLib.common import random_drop
@@ -46,13 +47,13 @@ class SGFNDataset (data.Dataset):
         self.cfg = self.config
         self.mconfig = config.data
         self.path = config.data.path
-        self.label_file = config.data.label_file
+        self.label_file = config.data.label_file_gt_scannet
         self.use_data_augmentation = self.mconfig.data_augmentation
         self.root_3rscan = config.data.path_3rscan_data
         self.path_h5 = os.path.join(self.path, define.NAME_RELATIONSHIPS)
         self.path_mv = os.path.join(self.path, define.NAME_VIS_GRAPH)
         self.path_roi_img = os.path.join(
-            self.mconfig.roi_img_path, define.NAME_ROI_IMAGE)
+            self.mconfig.roi_img_path_scannet, define.NAME_ROI_IMAGE)
         self.pth_filtered = os.path.join(
             self.path, 'filtered_scans_detection.h5')
         self.pth_node_weights = os.path.join(self.path, 'node_weights.txt')
@@ -91,6 +92,29 @@ class SGFNDataset (data.Dataset):
         ''' read classes '''
         pth_classes = os.path.join(path, 'classes.txt')
         pth_relationships = os.path.join(path, 'relationships.txt')
+        
+        # with open("/home/***/3DSSG/Relation_ScanNet/RelationScanNet_train.json", "r") as read_file:
+        #     data = json.load(read_file)
+        #     selected_scans = list()
+        #     '''skip scan'''
+        #     for s in data:
+        #         scan_id = s["scene_id"]
+        #         selected_scans.append(scan_id)
+        # with open('/home/***/3DSSG/Relation_ScanNet/data_processing/train_scans.txt', 'w') as f:
+        #     for item in selected_scans:
+        #         f.write(f"{item}\n")
+       
+        # with open("/home/***/3DSSG/Relation_ScanNet/RelationScanNet_val.json", "r") as read_file:
+        #     data = json.load(read_file)
+        #     selected_scans2 = list()
+        #     '''skip scan'''
+        #     for s in data:
+        #         scan_id = s["scene_id"]
+        #         selected_scans2.append(scan_id)
+        # with open('/home/***/3DSSG/Relation_ScanNet/data_processing/validation_scans.txt', 'w') as f:
+        #     for item in selected_scans2:
+        #         f.write(f"{item}\n")
+                
         selected_scans = read_txt_to_list(os.path.join(
             self.cfg.data.path_split, '%s_scans.txt' % (mode)))
 
@@ -250,6 +274,15 @@ class SGFNDataset (data.Dataset):
         if not hasattr(self, 'image_feature'):
             self.image_feature = h5py.File(self.path_img_feature, 'r')
 
+    def remove_line_from_file(self, file_path, line_to_remove):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+
+        lines = [line for line in lines if line.strip() != line_to_remove]
+
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.writelines(lines)
+
     def __getitem__(self, index):
         timers = dict()
         timer = TicToc()
@@ -260,6 +293,24 @@ class SGFNDataset (data.Dataset):
         # open
         self.open_filtered()
         self.open_data()
+
+        # remove no relation scan
+        # selected_scans = read_txt_to_list('/home/***/3DSSG/Relation_ScanNet/data_processing/train_scans.txt')
+        # for scan_id in selected_scans:
+        #     # get SG data
+        #     scan_data_raw = self.sg_data[scan_id]
+        #     scan_data = raw_to_data(scan_data_raw)
+        #     # shortcut
+        #     object_data = scan_data['nodes']
+        #     relationships_data = scan_data['relationships']
+
+        #     file_path = '/home/***/3DSSG/Relation_ScanNet/data_processing/123.txt'
+        #     if len(relationships_data) == 00:
+        #         print(scan_id)
+        #         self.remove_line_from_file(file_path, scan_id)
+        #     else:
+        #         continue
+        # print("over")
 
         # get SG data
         scan_data_raw = self.sg_data[scan_id]
@@ -315,7 +366,10 @@ class SGFNDataset (data.Dataset):
                 data = load_mesh(path, self.label_file,
                                  self.use_rgb, self.use_normal)
             points = copy.deepcopy(data['points'])
-            instances = copy.deepcopy(data['instances'])
+            # instances = copy.deepcopy(data['instances']) # 这个记录的是raw ply中的label id
+            object_id_to_label_id = copy.deepcopy(data['object_id_to_label_id'])
+            instance_ids = copy.deepcopy(data['instance_ids'])
+            object_id_to_segs = copy.deepcopy(data['object_id_to_segs'])
 
             if self.use_data_augmentation and not self.for_eval:
                 points = self.data_augmentation(points)
@@ -323,7 +377,7 @@ class SGFNDataset (data.Dataset):
 
         '''extract 3D node classes and instances'''
         timer.tic()
-        cat, oid2idx, idx2oid, filtered_instances = self.__sample_3D_nodes(object_data,
+        cat, oid2idx, idx2oid, filtered_instances, idx2proposal_idx = self.__sample_3D_nodes(object_data,
                                                                            mv_data,
                                                                            nns)
         timers['sample_3D_nodes'] = timer.tocvalue()
@@ -346,7 +400,7 @@ class SGFNDataset (data.Dataset):
         Generate mapping from selected entity buffer to the ground truth entity buffer (for evaluation)
         Save the mapping in edge_index format to allow PYG to rearrange them.
         '''
-        instance2labelName = {int(key): node['label']
+        instance2labelName = {int(node['instance_id']): node['label']
                               for key, node in object_data.items()}
         # Collect GT entity list
         gt_entities = set()
@@ -408,7 +462,7 @@ class SGFNDataset (data.Dataset):
         if self.mconfig.load_points:
             timer.tic()
             obj_points, descriptor, bboxes = self.__sample_points(
-                scan_id, points, instances, cat, filtered_instances)
+                scan_id, points, object_id_to_label_id, instance_ids, cat, filtered_instances)
             timers['sample_points'] = timer.tocvalue()
 
             '''build rel points'''
@@ -423,7 +477,7 @@ class SGFNDataset (data.Dataset):
             timer.tic()
             if self.mconfig.is_roi_img:
                 roi_images, node_descriptor_for_image, edge_indices_img_to_obj = \
-                    self.__load_roi_images(cat, idx2oid, mv_nodes, roi_imgs,
+                    self.__load_roi_images(cat, scan_id, idx2proposal_idx, mv_nodes, roi_imgs,
                                            object_data, filtered_instances)
             else:
                 images, img_bounding_boxes, bbox_cat, node_descriptor_for_image, \
@@ -473,7 +527,7 @@ class SGFNDataset (data.Dataset):
 
         '''collect attribute for nodes'''
         # for inseg the segment instance should be converted back to the GT instances
-        inst_indices = [seg2inst[k] for k in idx2oid.values()]
+        inst_indices = [seg2inst[k] for k in idx2proposal_idx.values()]
 
         ''' to tensor '''
         gt_class_3D = torch.from_numpy(np.array(cat))
@@ -640,6 +694,7 @@ class SGFNDataset (data.Dataset):
                 pth_node_weights) or not os.path.isfile(pth_edge_weights)
 
         if should_process:
+        # if True:
             '''
             This is to make sure the 2D and 3D methdos have the same amount of data for training 
             '''
@@ -797,7 +852,8 @@ class SGFNDataset (data.Dataset):
                 _ = np.loadtxt(pth_node_weights)
                 _ = np.loadtxt(pth_edge_weights)
 
-    def __sample_points(self, scan_id, points, instances, cat: list, filtered_instances: list):
+    # 已经在gen data中融入了instance——id,这个与object_id_to_segs对应，位于aggra.json中对应。还需要完善提取sample points
+    def __sample_points(self, scan_id, points, object_id_to_label_id, instance_ids, cat: list, filtered_instances: list):
         bboxes = list()
         use_obj_context = False  # TODO: not here
         obj_points = torch.zeros(
@@ -805,8 +861,8 @@ class SGFNDataset (data.Dataset):
         descriptor = torch.zeros([len(cat), 11])
         for i in range(len(filtered_instances)):
             instance_id = filtered_instances[i]
-            obj_pointset = points[np.where(instances == instance_id)[0], :]
-
+            obj_pointset = points[np.where(instance_ids == instance_id)[0], :]
+            # np.unique(instance_ids)
             min_box = np.min(obj_pointset[:, :3], 0)
             max_box = np.max(obj_pointset[:, :3], 0)
             if use_obj_context:
@@ -884,7 +940,7 @@ class SGFNDataset (data.Dataset):
         return rel_points
 
     def __sample_3D_nodes(self, object_data: dict, mv_data: dict, nns: dict):
-        instance2labelName = {int(key): node['label']
+        instance2labelName = {int(node['instance_id']): node['label']
                               for key, node in object_data.items()}
 
         '''sample training set'''
@@ -893,9 +949,9 @@ class SGFNDataset (data.Dataset):
             instances_ids.remove(0)
 
         if self.sample_in_runtime and not self.for_eval:
-            selected_nodes = list(object_data.keys())
+            selected_nodes = list(node['instance_id'] for _, node in object_data.items())
             if self.mconfig.load_images:
-                mv_node_ids = [int(x) for x in mv_data['nodes'].keys()]
+                mv_node_ids = [int(x) for x in mv_data['nodes'].keys()]   #mv_data['kfs'].keys()
                 selected_nodes = list(
                     set(selected_nodes).intersection(mv_node_ids))
             # selected_nodes = list(set(selected_nodes).intersection(filtered_data))
@@ -938,6 +994,7 @@ class SGFNDataset (data.Dataset):
         '''
         oid2idx = {}  # map instance_id to idx
         idx2oid = {}  # map idx to instance_id
+        idx2proposal_idx = {}
         cat = []
         counter = 0
         filtered_instances = list()
@@ -957,8 +1014,10 @@ class SGFNDataset (data.Dataset):
                 filtered_instances.append(instance_id)
                 # idx2oid.append(int(instance_id))
                 cat.append(class_id)
+        
+        idx2proposal_idx = {idx: proposal_idx for idx,proposal_idx in enumerate(list(object_data.keys()))}
 
-        return cat, oid2idx, idx2oid, filtered_instances
+        return cat, oid2idx, idx2oid, filtered_instances, idx2proposal_idx
         # return cat,idx2oid,filtered_instances
 
     def __extract_relationship_data(self, relationships_data, oid2idx: dict):
@@ -1016,14 +1075,13 @@ class SGFNDataset (data.Dataset):
                     if len(relatinoships_gt[key]) != 1:
                         # print('scan_id',scan_id)
                         # print('iid1,iid2',idx2oid[index1],idx2oid[index2])
-                        print('index1,index2', index1, index2)
-                        print(
-                            'key, relatinoships_gt[key]', key, relatinoships_gt[key])
+                        # print('index1,index2', index1, index2)
+                        # print(                           'key, relatinoships_gt[key]', key, relatinoships_gt[key])
                         # print(instance2labelName[key[0]],instance2labelName[key[1]])
-                        [print(self.relationNames[x])
-                         for x in relatinoships_gt[key]]
-                        assert len(relatinoships_gt[key]) == 1
-                    gt_rels[e] = relatinoships_gt[key][0]
+                        # [print(self.relationNames[x])
+                        #  for x in relatinoships_gt[key]]
+                        # assert len(relatinoships_gt[key]) == 1
+                        gt_rels[e] = relatinoships_gt[key][0]
                 edges_has_gt.append(e)
         return gt_rels, edges_has_gt
 
@@ -1120,7 +1178,7 @@ class SGFNDataset (data.Dataset):
 
         return gt_rels, edge_indices  # , new_edge_index_has_gt
 
-    def __load_roi_images(self, cat: list, idx2oid: dict, mv_nodes: dict, roi_imgs: dict,
+    def __load_roi_images(self, cat: list, scan_id, idx2oid: dict, mv_nodes: dict, roi_imgs: dict,
                           object_data: dict, filtered_instances: list):
         descriptor_generator = util_data.Node_Descriptor_24(
             with_bbox=self.mconfig.img_desc_6_pts)
@@ -1132,13 +1190,20 @@ class SGFNDataset (data.Dataset):
 
         '''get roi images'''
         for idx in range(len(cat)):
-            oid = str(idx2oid[idx])
+            oid = str(idx2oid[idx] )
             node = mv_nodes[oid]
             cls_label = node.attrs['label']
             if cls_label == 'unknown':
                 cls_label = self.classNames[cat[idx]]
 
-            img_ids = range(len(roi_imgs[oid]))
+            # img_ids = range(len(roi_imgs[oid]))
+            if oid in roi_imgs:
+                img_ids = range(len(roi_imgs[oid]))
+            else:
+                # 处理缺失键的逻辑，例如跳过该样本或使用默认值
+                img_ids = []
+                print("scan_id:", scan_id)
+                print(f"Warning: oid '{oid}' not found in roi_imgs.")
             # print(roi_imgs[oid].file.filename)
             if not self.for_eval:
                 img_ids = random_drop(
@@ -1192,8 +1257,7 @@ class SGFNDataset (data.Dataset):
 
         '''compute node description'''
         for i in range(len(filtered_instances)):
-            instance_id = filtered_instances[i]
-            obj = object_data[instance_id]
+            obj = object_data[idx2oid[i]]
             # obj = objects[str(instance_id)]
 
             '''augmentation'''
@@ -1395,6 +1459,38 @@ class SGFNDataset (data.Dataset):
         return images, bounding_boxes, bbox_cat, node_descriptor_for_image, \
             image_edge_indices, img_idx2oid, temporal_node_graph, temporal_edge_graph
 
+def read_aggregation(filename):
+        assert os.path.isfile(filename)
+        object_id_to_segs = {}
+        label_to_segs = {}
+        with open(filename) as f:
+            data = json.load(f)
+            num_objects = len(data['segGroups'])
+            for i in range(num_objects):
+                object_id = data['segGroups'][i][
+                    'objectId'] + 1  # instance ids should be 1-indexed
+                label = data['segGroups'][i]['label']
+                segs = data['segGroups'][i]['segments']
+                object_id_to_segs[object_id] = segs
+                if label in label_to_segs:
+                    label_to_segs[label].extend(segs)
+                else:
+                    label_to_segs[label] = segs
+        return object_id_to_segs, label_to_segs
+    
+def read_segmentation(filename):
+        assert os.path.isfile(filename)
+        seg_to_verts = {}
+        with open(filename) as f:
+            data = json.load(f)
+            num_verts = len(data['segIndices'])
+            for i in range(num_verts):
+                seg_id = data['segIndices'][i]
+                if seg_id in seg_to_verts:
+                    seg_to_verts[seg_id].append(i)
+                else:
+                    seg_to_verts[seg_id] = [i]
+        return seg_to_verts, num_verts
 
 def load_mesh(path, label_file, use_rgb, use_normal):
     result = dict()
@@ -1406,7 +1502,7 @@ def load_mesh(path, label_file, use_rgb, use_normal):
                 path, label_file), process=False)
 
         points = np.array(plydata.vertices)
-        instances = util_ply.read_labels(plydata).flatten()
+        instances = util_ply.read_labels_scannet(plydata).flatten()
         ply_raw = 'ply_raw' if 'ply_raw' in plydata.metadata else '_ply_raw'
         if use_rgb:
             r = plydata.metadata[ply_raw]['vertex']['data']['red']
@@ -1425,14 +1521,44 @@ def load_mesh(path, label_file, use_rgb, use_normal):
         result['instances'] = instances
 
     else:  # label_file.find('inseg')>=0 or label_file == 'cvvseg.ply':
-        plydata = trimesh.load(os.path.join(path, label_file), process=False)
+        plydata = trimesh.load(os.path.join(path, os.path.basename(path) + label_file), process=False)
         points = np.array(plydata.vertices)
         text_ply_raw = 'ply_raw' if 'ply_raw' in plydata.metadata else '_ply_raw'
-        instances = plydata.metadata[text_ply_raw]['vertex']['data']['label'].flatten(
-        )
+
+        pth_agg = os.path.join(path, '{}.aggregation.json'.format(os.path.basename(path)))
+        pth_semseg = os.path.join(path, '{}_vh_clean_2.0.010000.segs.json'.format(os.path.basename(path)))
+        # Load semantic and instance labels
+        object_id_to_segs, label_to_segs = read_aggregation(pth_agg)
+        seg_to_verts, num_verts = read_segmentation(pth_semseg)
+        label_ids = np.zeros(shape=(num_verts), dtype=np.uint32) 
+        pth_mapping = define.PATH_LABEL_MAPPING_SCANNET
+        label_map = util_label.read_label_mapping(pth_mapping, label_from='raw_category')
+        object_id_to_label_id = {}
+        for label, segs in label_to_segs.items():
+            label_id = label_map[label]
+            for seg in segs:
+                verts = seg_to_verts[seg]
+                label_ids[verts] = label_id
+        instance_ids = np.zeros(shape=(num_verts), dtype=np.uint32)  # 0: unannotated    
+        num_instances = len(np.unique(list(object_id_to_segs.keys())))
+        for object_id, segs in object_id_to_segs.items():
+            for seg in segs:
+                verts = seg_to_verts[seg]
+                instance_ids[verts] = object_id
+                if object_id not in object_id_to_label_id:
+                    object_id_to_label_id[object_id] = label_ids[verts][0]
+
+        # instances = plydata.metadata[text_ply_raw]['vertex']['data']['label'].flatten()
 
         if use_rgb:
-            rgbs = np.array(plydata.colors)[:, :3] / 255.0 * 2 - 1.0
+            # rgbs = np.array(plydata.colors)[:, :3] / 255.0 * 2 - 1.0
+            # points = np.concatenate((points, rgbs), axis=1)
+            num_verts = points.shape[0]
+            vertices = np.zeros(shape=[num_verts, 7], dtype=np.float32)
+            r = plydata.metadata[text_ply_raw]['vertex']['data']['red']
+            g = plydata.metadata[text_ply_raw]['vertex']['data']['green']
+            b = plydata.metadata[text_ply_raw]['vertex']['data']['blue']
+            rgbs = np.stack([r, g, b]).squeeze().transpose() / 255.0 * 2 - 1.0
             points = np.concatenate((points, rgbs), axis=1)
         if use_normal:
             nx = plydata.metadata[text_ply_raw]['vertex']['data']['nx']
@@ -1442,8 +1568,10 @@ def load_mesh(path, label_file, use_rgb, use_normal):
             normal = np.stack([nx, ny, nz]).squeeze().transpose()
             points = np.concatenate((points, normal), axis=1)
         result['points'] = points
-        result['instances'] = instances
-
+        result['object_id_to_label_id'] = object_id_to_label_id
+        result['instance_ids'] = instance_ids
+        result['object_id_to_segs'] = object_id_to_segs
+        
     return result
 
 
@@ -1460,7 +1588,7 @@ def zero_mean(point, normalize: bool):
 
 if __name__ == '__main__':
     import codeLib
-    path = './experiments/config_2DSSG_ORBSLAM3_l20_6_1.yaml'
+    path = '/home/***/3DSSG/configs/RelationScanNet.yaml'
     config = codeLib.Config(path)
 
     config.DEVICE = '1'
@@ -1469,6 +1597,6 @@ if __name__ == '__main__':
     # sample_in_runtime = True
     # config.dataset.data_augmentation=True
     # split_type = 'validation_scans' # ['train_scans', 'validation_scans','test_scans']
-    dataset = SGFNDataset(config, 'validation')
+    dataset = SGFNDataset(config, 'train')
     items = dataset.__getitem__(0)
-    # print(items)
+    print(items)

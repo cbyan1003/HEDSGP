@@ -122,7 +122,7 @@ if __name__ == '__main__':
                 generate_rendered_images(scan_id)
     else:
         # Download from the server
-        if os.path.isfile('/home/ycb/3DSSG/data/dataset/rendered.zip') and not args.overwrite:
+        if os.path.isfile('/home/***/3DSSG/data/dataset/rendered.zip') and not args.overwrite:
             logger_py.info('rendered.zip already downloaded')
             pass
         else:

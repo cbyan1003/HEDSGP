@@ -25,7 +25,7 @@ DEBUG=False
 
 random_clr_i = [color_rgb(rand_24_bit()) for _ in range(1500)]
 random_clr_i[0] = (0,0,0)
-ffont = '/home/ycb/3DSSG/files/Raleway-Medium.ttf'
+ffont = '/home/***/3DSSG/files/Raleway-Medium.ttf'
 
 def Parse():
     parser = argparse.ArgumentParser(formatter_class = argparse.ArgumentDefaultsHelpFormatter)

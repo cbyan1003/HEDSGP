@@ -24,7 +24,6 @@ from ssg.models.box_decoder import CenterSigmoidBoxTensor, BoxTensor, BCEWithLog
 import cProfile
 import random
 from memory_profiler import profile
-from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import datetime
@@ -129,7 +128,7 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
             #     self.update_confusion_memory(new_dict, Confusion_Memory_Block, data['node'].y, node_pred_cls, edge_pred_cls, mode='Train')
         else:
             logs = self.compute_loss(data, Confusion_Memory_Block, all_features, all_labels, it=it, eval_tool=self.eva_tool)
-        torch.cuda.empty_cache()
+       
         if 'loss' not in logs:
             return logs
         logs['loss'].backward(retain_graph=False)
@@ -216,7 +215,7 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
                 rel_cls_pred_id = [edge_pred_cls[i].detach().unsqueeze(0) for i in range(len(edge_dict))]
                 rel_cls_gt_id = [edge['gt_rel'].detach().unsqueeze(0) for edge in edge_dict]
 
-                # 将列表组合成元组
+                
                 front_box_list, back_box_list, relation_list = (
                     {'front_box_min': front_box_min, 'front_box_max': front_box_max,
                     'front_cls_gt_id': front_cls_gt_id, 'front_cls_pred_id': front_cls_pred_id},
@@ -238,7 +237,7 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
             #     rel_cls_pred_id = np.array([edge_pred_cls[edge['node_to_node'][0].detach()].unsqueeze(0) for edge in edge_dict])
             #     rel_cls_gt_id = np.array([edge['gt_rel'].detach().unsqueeze(0) for edge in edge_dict])
 
-            #     # 将数组组合成元组
+            # 
             #     front_box_list, back_box_list, relation_list = (
             #         {'front_cls_gt_id': front_cls_gt_id, 'front_cls_pred_id': front_cls_pred_id,
             #         'front_translation': front_translation, 'front_scale': front_scale},
@@ -260,7 +259,7 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
             #     rel_cls_pred_id = np.array([edge_pred_cls[edge['node_to_node'][0].detach()].unsqueeze(0) for edge in edge_dict])
             #     rel_cls_gt_id = np.array([edge['gt_rel'].detach().unsqueeze(0) for edge in edge_dict])
 
-            #     # 将数组组合成元组
+            # 
             #     front_box_list, back_box_list, relation_list = (
             #         {'front_box_min': front_box_min, 'front_box_max': front_box_max,
             #         'front_cls_gt_id': front_cls_gt_id, 'front_cls_pred_id': front_cls_pred_id,},
@@ -313,13 +312,13 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
         # data = self.process_data_dict(data)
 
         # Shortcuts
-        # scan_id = data['scan_id']
+        # scan_id = data['y']
         gt_node = data['node'].y
         gt_edge = data['node', 'to', 'node'].y
 
-        for i in gt_edge:
-            if i > 8:
-                raise ValueError("error in gt_edge, please check the data.")
+        # for i in gt_edge:
+        #     if i > 8:
+        #         raise ValueError("error in gt_edge, please check the data.")
 
         if not self.use_JointSG:  
             ''' make forward pass through the network '''
@@ -328,61 +327,13 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
         
             
             output, node_cls_vol, new_dict = self.model(data, Confusion_Memory_Block)
-            
-            # with torch.no_grad():
-            #     features = output.cpu().numpy()
-            #     all_features.append(features)
-            #     label = data['node'].y
-            #     all_labels.append(label.cpu().numpy())
-
-            # if len(all_labels) % 800 == 0:
-            #     print("len(all_labels){}".format(len(all_labels)))
-            #     tsne = TSNE(n_components=2, random_state=42)
-            #     train_tsne = tsne.fit_transform(np.concatenate(all_features))
-
-            #     plt.figure(figsize=(12,12), dpi=300)
-            #     for i in range(20):
-            #         indices = np.concatenate(all_labels) == i
-            #         plt.scatter(train_tsne[indices, 0], train_tsne[indices, 1], cmap='tab20', alpha=0.5, marker='+')
-            #         center = np.mean(train_tsne[indices], axis=0)
-            #         plt.annotate(f'{i}', center, fontsize=18, alpha=0.8, ha='center', va='center')
-            #     # plt.legend()
-            #     plt.axis('off')
-            #     plt.savefig('./tsne/node_{}.png'.format(len(all_labels)//100))
+        
 
 
         else:
             output, node_cls, edge_cls = self.model(data, Confusion_Memory_Block)
             
-            # tsne draw
-            with torch.no_grad():
-                features = output.cpu().numpy()
-                all_features.append(features)
-                label = data['node'].y
-                all_labels.append(label.cpu().numpy())
-                # print("len(all_labels){}".format(len(all_labels)))
-
-
-            if len(all_labels) % 800 == 0:
-                # 获取当前日期和时间
-                current_datetime = datetime.datetime.now()
-                hour = current_datetime.hour
-                minute = current_datetime.minute
-                second = current_datetime.second
-
-                print("len(all_labels), savefig at node_{}{}{}.png".format(hour,minute,second))
-                tsne = TSNE(n_components=2, random_state=42)
-                train_tsne = tsne.fit_transform(np.concatenate(all_features))
-
-                plt.figure(figsize=(12,12), dpi=300)
-                for i in range(20):
-                    indices = np.concatenate(all_labels) == i
-                    plt.scatter(train_tsne[indices, 0], train_tsne[indices, 1], cmap='tab20', alpha=0.5, marker='+')
-                    center = np.mean(train_tsne[indices], axis=0)
-                    plt.annotate(f'{i}', center, fontsize=18, alpha=0.8, ha='center', va='center')
-                # plt.legend()
-                plt.axis('off')
-                plt.savefig('./tsne/new_draw_node_{}{}{}.png'.format(hour,minute,second))
+    
         ''' calculate loss '''
         
         if not self.use_JointSG:  
@@ -407,7 +358,7 @@ class Trainer_SGFN(BaseTrainer, EvalInst):
                 self.calc_edge_loss(logs, edge_cls_vol, gt_edge, weights = self.w_edge_cls)
                 # self.calc_logic_loss(logs, new_dict, gt_node)
                 
-                # old version
+                #
                 # edge_dict, edge_cls, gt_edge_cls = self.calc_edge_loss(logs, edge_cls_vol, gt_edge, front_cls_gt, back_cls_gt, rel_cls_pred_id, gt_node.shape[0], 
                 #                                 front_box, back_box, front_box_cls_pred, back_box_cls_pred, 
                 #                                 front_translation, front_scale, back_translation, back_scale, 

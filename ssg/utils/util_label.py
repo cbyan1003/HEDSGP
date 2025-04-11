@@ -1,5 +1,7 @@
 from ssg import define
 import codeLib
+import csv
+import os
 # import ssg2d.utils.util as util
 # try: import define
 # except: from utils import define
@@ -124,6 +126,40 @@ SCANNET20_Label_Names = [
 'otherfurniture',
 ]
 
+def getnyumapping(path):
+    import csv
+    NYU40=dict()
+    NYU_reverse = dict()
+    with open(path, newline='') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter='\t', quotechar='|')
+        for row in spamreader:
+            # print(', '.join(row))
+            if not row[0].isnumeric():
+                continue
+            NYU40[int(row[4])] = row[7]
+            NYU_reverse[row[7]] = int(row[4]) # dict(sorted(Eigen13.items())),
+    return dict(sorted(NYU40.items())),  dict(sorted(NYU_reverse.items()))
+
+def getLabelNames_scannet(path):
+    import csv
+    ScanNet=dict()
+    ScanNet_raw=dict()
+    NYU40=dict()
+    Eigen13=dict()
+    toNYU = dict()
+    with open(path, newline='') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter='\t', quotechar='|')
+        for row in spamreader:
+            # print(', '.join(row))
+            if not row[0].isnumeric():
+                continue
+            ScanNet[int(row[0])]=row[2]
+            ScanNet_raw[(row[1])]=row[0]
+            NYU40[int(row[4])] = row[7]
+            Eigen13[int(row[5])] = row[8] 
+            toNYU[row[1]] = int(row[4]) # dict(sorted(Eigen13.items())),
+    return dict(sorted(ScanNet.items())), dict(sorted(ScanNet_raw.items())),dict(sorted(NYU40.items())),  dict(sorted(toNYU.items()))
+
 def getLabelNames(path):
     import csv
     Scan3R=dict()
@@ -166,6 +202,27 @@ def getLabelNameMapping(path):
             toNameRIO27[row[1]] = row[7] if row[7] != '-' else 'none'
             toNameRIO7[row[1]] = row[9] if row[9] != '-' else 'none'
     return raw, toNameNYU40,toNameEigen,toNameRIO27,toNameRIO7
+
+def getLabelNameMapping_scannet(path):
+    """
+    return  toNameNYU40,toNameEigen,
+    """
+    import csv
+    label_name=dict()
+    toraw=dict()
+    toNameNYU40=dict()
+    toNameEigen=dict()
+    with open(path, newline='') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter='\t', quotechar='"')
+        for row in spamreader:
+            if not row[0].isnumeric():
+                continue
+            label_name[row[2]]=row[2]
+            toraw[row[2]] = row[1] if row[1] != '-' else ''
+            toNameNYU40[row[2]] = row[7] if row[7] != '-' else ''
+            toNameEigen[row[2]] = row[8] if row[8] != '-' else ''
+    return label_name, toraw, toNameNYU40,toNameEigen
+
 def getLabelIdxMapping(path):
     """
     return  toNYU40,toEigen,toRIO27,toRIO7
@@ -189,6 +246,106 @@ def getLabelIdxMapping(path):
             toRIO7[int(row[0])] = int(row[8])
             # break
     return raw,toNYU40,toEigen,toRIO27,toRIO7
+
+def getLabelIdxMapping_scannet(path):
+    """
+    return  toNYU40,toEigen
+    """
+    import csv
+    label_id=dict()
+    toNYU40=dict()
+    toEigen=dict()
+    with open(path, newline='') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter='\t', quotechar='|')
+        for row in spamreader:
+            # print(', '.join(row))
+            if not row[0].isnumeric():
+                continue
+            label_id[int(row[0])] = int(row[0])
+            toNYU40[int(row[0])] = int(row[4])
+            toEigen[int(row[0])] = int(row[5])
+            # break
+    return label_id,toNYU40,toEigen
+
+def represents_int(s):
+    """Judge whether string s represents an int.
+
+    Args:
+        s(str): The input string to be judged.
+
+    Returns:
+        bool: Whether s represents int or not.
+    """
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
+def read_label_mapping(filename,
+                       label_from='raw_category',
+                       label_to='nyu40id'):
+    assert os.path.isfile(filename)
+    mapping = dict()
+    with open(filename) as csvfile:
+        reader = csv.DictReader(csvfile, delimiter='\t')
+        for row in reader:
+            mapping[row[label_from]] = int(row[label_to])
+    if represents_int(list(mapping.keys())[0]):
+        mapping = {int(k): v for k, v in mapping.items()}
+    return mapping
+
+def getLabelMapping_scannet(label_type:str,pth_mapping:str = ""):
+    if pth_mapping == "":
+        pth_mapping = define.PATH_LABEL_MAPPING_SCANNET
+    pth_160 = define.PATH_CLASS160_FILE
+    ScanNet, raw_id, NYU40, Eigen13 = getLabelNames_scannet(pth_mapping)
+    NameScanNet, toNameScanNet_raw, toNameNYU40, toNameEigen13 = getLabelNameMapping_scannet(pth_mapping)
+    IdxScanNet, toNYU40, toEigen13 = getLabelIdxMapping_scannet(pth_mapping)
+    label_names=None
+    label_name_mapping=None
+    label_id_mapping=None
+    if label_type == 'nyu40':
+        label_names = NYU40
+        label_name_mapping = toNameNYU40
+        label_id_mapping = toNYU40
+    elif label_type == 'eigen13':
+        label_names = Eigen13
+        label_name_mapping = toNameEigen13
+        label_id_mapping = toEigen13
+    elif label_type == 'ScanNet':
+        label_names=ScanNet
+        label_name_mapping=NameScanNet
+        label_id_mapping=IdxScanNet
+    elif label_type == 'ScanNet160':
+        names = sorted(codeLib.utils.util.read_txt_to_list(pth_160))
+        label_names = {k:v for k,v in enumerate(names,1)}
+        n_to_id = {v:k for k,v in enumerate(names,1)}
+        label_name_mapping = dict()
+        label_id_mapping = dict()
+        for k,v in NameScanNet.items():
+            label_name_mapping[k] = v if v in names else 'none'
+        for k,v in ScanNet.items():
+            label_id_mapping[k] = 0 if v not in names else n_to_id[v]
+        
+    elif label_type == 'scannet20':
+        label_names = NYU40
+        label_name_mapping = toNameNYU40
+        label_id_mapping = toNYU40
+        
+        label_names = {i+1:SCANNET20_Label_Names[i] for i in range(len(SCANNET20_Label_Names)) }
+        for name, name40 in label_name_mapping.items():
+            label_name_mapping[name] = name40 if name40 in label_names.values() else 'none'
+        for id_f, id_40 in label_id_mapping.items():
+            nyu40name = NYU40_Label_Names[id_40-1]
+            if nyu40name in label_names.values():
+                id_scan20 = list(label_names.values()).index(nyu40name)+1
+                label_id_mapping[id_f] = id_scan20
+            else:
+                label_id_mapping[id_f] = 0
+    else:
+        raise RuntimeError('')
+    return label_names, label_name_mapping, label_id_mapping
 
 def getLabelMapping(label_type:str,pth_mapping:str = ""):
     if pth_mapping == "":

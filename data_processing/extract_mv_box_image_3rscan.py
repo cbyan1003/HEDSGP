@@ -41,7 +41,7 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 import sys
 # 添加你想要的文件夹路径到 Python 解释器的搜索路径中
-sys.path.append('/home/ycb/3DSSG')
+sys.path.append('/home/***/3DSSG')
 import codeLib
 from codeLib.math import getAngle
 from codeLib.torch.visualization import show_tv_grid, show_tensor_images

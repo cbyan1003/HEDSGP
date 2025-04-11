@@ -340,8 +340,8 @@ class Node_Descriptor_24(object):
                         torch.FloatTensor([0,0,dims[2]]),
                         -torch.FloatTensor([0,0,dims[2]]) ]
             six_pts = torch.stack(six_pts,dim=0)
-            rotation = torch.FloatTensor(obj['normAxes'])
-            six_pts = (rotation @ six_pts.t()).t() + center
+            # rotation = torch.FloatTensor(obj['normAxes'])
+            six_pts = six_pts + center
         # Find x_max,x_min,y_max,y_min,z_max,z_min
         
         

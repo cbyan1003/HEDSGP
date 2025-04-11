@@ -45,7 +45,7 @@ eval: #evaluation
  ignore_missing: false
 model:
  method: sgfn
- multi_rel: true # multiple relationship 
+ multi_rel: false # multiple relationship 
  use_rgb: false
  use_normal: false
  img_feature_dim: 256 #256
@@ -89,7 +89,7 @@ data:
  # Basic paths
  path_3rscan: "./data/dataset/" #"./data/3RScan/data/3RScan/"
  path_3rscan_data: "./data/dataset/data/3RScan/"
- path_scannet: './data/scannet/scans/'
+ path_scannet: '/home/***/Scannet_dataset/v2/v2/scans'
  path_file: "./files"
  # 
  input_type: sgfn #[3RScan, graph, sgfn, sgpn]
@@ -98,7 +98,9 @@ data:
  img_feature_path: "./data/kf_feature/"
  label_file: "labels.instances.align.annotated.v2.ply"
  label_file_gt: "labels.instances.align.annotated.v2.ply"
+ label_file_gt_scannet: "_vh_clean_2.labels.ply"
  roi_img_path: "${data.path_3rscan}/data/roi_images.h5"
+ roi_img_path_scannet: "/home/***/Scannet_dataset/v2/v2/roi_images.h5"
  path_image_feature: "./data/dataset/data/"
  path_split: "${data.path_file}/cvpr/"
  data_augmentation: false
@@ -129,7 +131,8 @@ data:
   path_2dgt: "${data.path_3rscan}/data/2dgt/"
   occupancy_downscale: 8 # The factor of downscaling while calculating the occurance. The larger the less accurate but faster speed.
   min_occ: 0.2 #The threshold for the visibility of an object. If below this value, discard (higher, more occurance)
-  min_box_size: [60,60] # The bounding box of each object should have at least x in width or height
+  min_occ_scannet: 0.0001
+  min_box_size: [30,30] # The bounding box of each object should have at least x in width or height
   min_box_ratio: 0.1 # A bounding box should have at least this ratio on the respective height and width of the input image # used in make_visibility_graph_incremental.py
   min_obj: 1 # each image should have at least x object(s)
   skip_structure: false # enble enble filtering on structure objects

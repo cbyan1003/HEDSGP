@@ -165,13 +165,13 @@ def process(scan_id):
     mapping[0] = 'none'
         
     # get number of scans
-    scan_info = read_3rscan_info(os.path.join(cfg.data.path_3rscan_data,scan_id,define.IMG_FOLDER_NAME,define.INFO_NAME))
+    scan_info = read_3rscan_info(os.path.join(cfg.data.path_3rscan,scan_id,define.IMG_FOLDER_NAME,define.INFO_NAME))
     n_images = int(scan_info['m_frames.size'])
     
     # check all images exist
     for frame_id in range(n_images):
         # pth_label = os.path.join(fdata,scan_id,'sequence', label_filepattern.format(frame_id))
-        pth_inst  = os.path.join(cfg.data.path_3rscan_data,scan_id,'sequence', define.NAME_PATTERN_INSTANCE_IMG.format(frame_id))
+        pth_inst  = os.path.join(cfg.data.path_3rscan,scan_id,'sequence', define.NAME_PATTERN_INSTANCE_IMG.format(frame_id))
         
         # if not os.path.isfile(pth_label): raise RuntimeError('file not exist.',pth_label)
         if not os.path.isfile(pth_inst): raise RuntimeError('file not exist.',pth_inst)
@@ -186,7 +186,7 @@ def process(scan_id):
     # process
     for frame_id in range(n_images):
         # pth_label = os.path.join(fdata,scan_id,'sequence', label_filepattern.format(frame_id))
-        pth_inst  = os.path.join(cfg.data.path_3rscan_data,scan_id,'sequence', define.NAME_PATTERN_INSTANCE_IMG.format(frame_id))
+        pth_inst  = os.path.join(cfg.data.path_3rscan,scan_id,'sequence', define.NAME_PATTERN_INSTANCE_IMG.format(frame_id))
         
         # limg_data = np.array(Image.open(pth_label), dtype=np.uint8)
         iimg_data = np.array(Image.open(pth_inst), dtype=np.uint8)

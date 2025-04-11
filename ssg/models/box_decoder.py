@@ -408,7 +408,7 @@ class Box_Classifier(nn.Module):
         #   heights2 = np.array(upper_bounds2) - np.array(lower_bounds2)
         #   bottoms2 = lower_bounds2
         #   plt.bar(value2, heights2, bottom=bottoms2, width = 1.0, color='red', alpha=0.7)
-        #   plt.savefig('/home/ycb/3DSSG/ssg/{}.png'.format(i))
+        #   plt.savefig('/home/***/3DSSG/ssg/{}.png'.format(i))
         
         
       obj_prob = torch.stack(obj_log_prob_list, dim=0)
@@ -681,7 +681,7 @@ class Box_Rel_Classifier(nn.Module):
           return x1_h, x1_b, x2_h, x2_b, key_h, key_b, ex1_h, ex1_b, ex2_h, ex2_b
         if max_value > self.old_max:
           self.old_max = max_value
-          plt.figure(figsize=(35, 7),dpi=500)
+          plt.figure(figsize=(40, 5),dpi=500)
           categories = list(range(256))
           y_num=np.arange(len(categories)* 6.5)
           lower_bounds1 = front_box.min_offset[max_index].cpu()
@@ -719,11 +719,11 @@ class Box_Rel_Classifier(nn.Module):
           plt.ylabel('Position')
           plt.xlabel('Dimension')
           # plt.xticks(np.arange(len(categories)) * 1.5, rotation=45)
-          plt.savefig('/home/ycb/3DSSG/ssg/new_new_draw_draw_max_slim{}.png'.format(max_index))
+          plt.savefig('/home/***/3DSSG/ssg/newest_draw_draw_max_slim{}.png'.format(max_index))
         print("old_max:{}".format(self.old_max)) 
         if min_value < self.old_min:
           self.old_min = min_value
-          plt.figure(figsize=(35, 7),dpi=500)
+          plt.figure(figsize=(40, 5),dpi=500)
           categories = list(range(256))
           y_num=np.arange(len(categories)* 6.5)
           lower_bounds1 = front_box.min_offset[min_index].cpu()
@@ -757,7 +757,7 @@ class Box_Rel_Classifier(nn.Module):
           plt.ylim(min(min(bottoms1), min(bottoms2), 0), max(max(upper_bounds1), max(upper_bounds2)))
           plt.ylabel('Position')
           plt.xlabel('Dimension')
-          plt.savefig('/home/ycb/3DSSG/ssg/new_new_draw_draw_min_slim{}.png'.format(min_index))
+          plt.savefig('/home/***/3DSSG/ssg/newest_draw_draw_min_slim{}.png'.format(min_index))
         print("old_min:{}".format(self.old_min)) 
       new_dict.append({'rel_prob_list':rel_prob_list, 'node_to_node':[idx0,idx1], 'gt_rel':gt_rel, 
                        'front_translation':front_translation, 'front_scale':front_scale, 'back_translation':back_translation, 'back_scale':back_scale,

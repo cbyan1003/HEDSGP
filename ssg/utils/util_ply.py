@@ -5,6 +5,10 @@ from codeLib.utils.util import check_file_exist
 import ssg.define as define
 from plyfile import PlyElement, PlyData
 
+def read_labels_scannet(plydata):
+    ply_raw = 'ply_raw' if 'ply_raw' in plydata.metadata else '_ply_raw'
+    data = plydata.metadata[ply_raw]['vertex']['data']['label']
+    return labels
 
 def read_labels(plydata):
     ply_raw = 'ply_raw' if 'ply_raw' in plydata.metadata else '_ply_raw'

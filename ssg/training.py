@@ -232,11 +232,9 @@ class Trainer():
         Run validation with logging and checkpoint management.
 
         '''
-        torch.cuda.empty_cache()
         # only calculate topK in evaluation. it's slow.
         eval_dict, *_ = self.model_trainer.evaluate(val_loader, self.Confusion_Memory_Block, self.all_features, self.all_labels, topk=0)
         metric_val = eval_dict[self.selected_metric]
-        torch.cuda.empty_cache()
 
         if logger:
             logger.add_scalar('val/epoch', epoch_it, it)

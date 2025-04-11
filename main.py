@@ -52,6 +52,7 @@ def main():
         train_loader = torch_geometric.loader.DataLoader(
             dataset_train,
             batch_size=cfg.training.batch,
+            shuffle=False,
             num_workers=n_workers,
             pin_memory=True
         )
@@ -65,6 +66,7 @@ def main():
         # try to load one data
         logger_py.info('test loader')
         for i, data in enumerate(train_loader):
+            # print(i)
             break
             continue
 

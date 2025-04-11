@@ -21,7 +21,7 @@ from codeLib.torch.visualization import show_tensor_images
 from ssg.utils.util_data import read_all_scan_ids
 
 DEBUG=True
-DEBUG=False
+# DEBUG=False
 
 random_clr_i = [color_rgb(rand_24_bit()) for _ in range(1500)]
 random_clr_i[0] = (0,0,0)
@@ -91,7 +91,7 @@ def get_bbx_wo_flatcheck(lcfg, fn,min_oc, mapping, min_size:list=[240,240], imag
         oc=float(oc)
         oc = round(oc, 3)
         if oc<min_oc: # if occlusion rate is over the maximum authorised, then skip
-            if DEBUG: logger_py.debug(msg.format(fname,oid,olabel)+' occluded '+oc+'<'+min_oc)
+            # if DEBUG: logger_py.debug(msg.format(fname,oid,olabel)+' occluded '+oc+'<'+min_oc)
             filter_counter['occ']+=1
             filter_label['occ'].add(olabel)
             continue
@@ -100,7 +100,7 @@ def get_bbx_wo_flatcheck(lcfg, fn,min_oc, mapping, min_size:list=[240,240], imag
         if lcfg.skip_size>0:
             size = [x2-x1,y2-y1]
             if size[0] < min_size[0] or size[1] < min_size[1]:
-                if DEBUG: logger_py.debug(msg.format(fname,oid,olabel)+' too small '+ size)
+                # if DEBUG: logger_py.debug(msg.format(fname,oid,olabel)+' too small '+ size)
                 filter_counter['size']+=1
                 filter_label['size'].add(olabel)
                 continue
@@ -136,15 +136,21 @@ def vis(datapath, scan_id,obj_by_img:dict,image_size:tuple=(960,540)):
         clr_img_diff = np.zeros([height,width,3],dtype=np.uint8)
         
         for oid in ori_list:
-            clr_img_ori[iimg_data==oid] = random_clr_i[oid]
+            mask = (iimg_data[:, :, 0] == oid) | (iimg_data[:, :, 1] == oid) | (iimg_data[:, :, 2] == oid)
+            clr_img_ori[mask] = random_clr_i[oid]
+            # clr_img_ori[iimg_data==oid] = random_clr_i[oid]
         
         for data in data_list:
             oid, *_ = data
-            clr_img[iimg_data==oid] = random_clr_i[oid]
+            mask = (iimg_data[:, :, 0] == oid) | (iimg_data[:, :, 1] == oid) | (iimg_data[:, :, 2] == oid)
+            clr_img[mask] = random_clr_i[oid]
+            # clr_img[iimg_data==oid] = random_clr_i[oid]
             
         
         for oid in diff:
-            clr_img_diff[iimg_data==oid] = random_clr_i[oid]
+            mask = (iimg_data[:, :, 0] == oid) | (iimg_data[:, :, 1] == oid) | (iimg_data[:, :, 2] == oid)
+            clr_img_diff[mask] = random_clr_i[oid]
+            # clr_img_diff[iimg_data==oid] = random_clr_i[oid]
             
         # fix, axs = plt.subplots(ncols=len(imgs), squeeze=False)
         torch_img_ori = torch.as_tensor(clr_img_ori).permute(2,0,1)
@@ -219,7 +225,7 @@ if __name__ == '__main__':
         # load image info
         info_3rscan = util_3rscan.read_3rscan_info(os.path.join(fdata,scan_id,define.IMG_FOLDER_NAME,define.INFO_NAME))
         print(info_3rscan)
-        img_h,img_w = int(info_3rscan['m_colorWidth']), int(info_3rscan['m_colorHeight'])# we already rotated the input view when generating the rendered views. so swap h and w
+        img_h, img_w = int(info_3rscan['m_colorWidth']), int(info_3rscan['m_colorHeight'])# we already rotated the input view when generating the rendered views. so swap h and w
         
         
         '''load 2dgt'''
@@ -240,8 +246,8 @@ if __name__ == '__main__':
         obj_by_img=get_bbx_wo_flatcheck(lcfg, gt2d_file, min_oc,label_name_mapping, lcfg.min_box_size, (img_h,img_w))
             
         '''debug vis'''
-        if DEBUG:
-            vis(lcfg.path_3rscan_data,scan_id,obj_by_img,(img_h,img_w))
+        # if DEBUG:
+            # vis(cfg.data.path_3rscan,scan_id,obj_by_img,(img_h,img_w))
         
         # cluster the frames, each cluster correspond to a set of objects, all the elements of a cluster are images where these objects appear
         oidss={}
